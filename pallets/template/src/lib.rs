@@ -40,11 +40,14 @@ pub mod pallet {
     }
 
     #[pallet::storage]
-    #[pallet::getter(fn files)]
-    pub(super) type Files<T: Config> = StorageMap<_, Blake2_128Concat, T::Hash, (T::AccountId, FileMerkleTree)>;
+    pub(super) type Files<T: Config> = StorageMap<_, Blake2_128Concat, T::Hash, (T::AccountId, FileMerkleTree), OptionQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        /// Uploads a file to the blockchain.
+        /// Bear in mind that as a general rule of thumb blockchains should not store big amounts of
+        /// data, and instead decentralized services like IPFS should be used, storing only the
+        /// associated hash on the blockchain.
         #[pallet::weight(0)]
         #[pallet::call_index(0)]
         pub fn upload_file(origin: OriginFor<T>, file_bytes: Vec<u8>) -> DispatchResult {
@@ -64,10 +67,34 @@ pub mod pallet {
             Self::deposit_event(Event::FileUploaded {
                 who,
                 merkle_root,
-                pieces: file_merkle_tree.pieces
+                pieces: file_merkle_tree.pieces,
             });
 
             Ok(())
+        }
+    }
+
+    // RPC methods
+    impl<T: Config> Pallet<T> {
+        /// Gets all file hashes ever submitted
+        pub fn get_files() -> Vec<(Vec<u8>, u32)> {
+            let result = Files::<T>::iter()
+                .map(|(_, (_, tree))| (tree.merkle_root().to_vec(), tree.pieces))
+                .collect::<Vec<(Vec<u8>, u32)>>();
+            result
+        }
+
+        /// Given a file's merkle root hash, gets the merkle proof of a given piece.
+        /// Returns a tuple where the first element is the chunk content, and the second is
+        /// the merkle proof.
+        ///
+        /// The idea is that the client can use the content to compute the sha256 hash, and with it
+        /// hash along with the rest of the proofs until the merkle root is finally computed.
+        /// This way it gets proven that the content is authentic in a trustless manner.
+        pub fn get_proof(merkle_root: Vec<u8>, position: u32) -> Option<(Vec<u8>, Vec<Vec<u8>>)> {
+            let key = T::Hash::decode(&mut merkle_root.as_slice()).map_err(|_| None::<T>).ok()?;
+            let (_, merkle_tree) = Files::<T>::get(key)?;
+            merkle_tree.merkle_proof(position)
         }
     }
 }
