@@ -40,8 +40,7 @@ pub mod pallet {
     }
 
     #[pallet::storage]
-    #[pallet::getter(fn files)]
-    pub(super) type Files<T: Config> = StorageMap<_, Blake2_128Concat, T::Hash, (T::AccountId, FileMerkleTree)>;
+    pub(super) type Files<T: Config> = StorageMap<_, Blake2_128Concat, T::Hash, (T::AccountId, FileMerkleTree), OptionQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -64,10 +63,22 @@ pub mod pallet {
             Self::deposit_event(Event::FileUploaded {
                 who,
                 merkle_root,
-                pieces: file_merkle_tree.pieces
+                pieces: file_merkle_tree.pieces,
             });
 
             Ok(())
+        }
+    }
+
+    // RPC methods
+
+    impl<T: Config> Pallet<T> {
+        /// Get all file hashes ever submitted
+        pub fn get_files() -> Vec<(Vec<u8>, u32)> {
+            let result = Files::<T>::iter()
+                .map(|(_, (_, tree))| (tree.merkle_root().to_vec(), tree.pieces))
+                .collect::<Vec<(Vec<u8>, u32)>>();
+            result
         }
     }
 }

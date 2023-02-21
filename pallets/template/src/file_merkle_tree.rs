@@ -37,7 +37,8 @@ impl Decode for FileMerkleTree {
         let pieces = u32::from_le_bytes(buff);
         let mut file_bytes = vec![0u8; file_size as usize];
         input.read(&mut file_bytes)?;
-        let mut merkle_tree = vec![0u8; file_size as usize];
+        let merkle_tree_len = input.remaining_len()?.unwrap();
+        let mut merkle_tree = vec![0u8; merkle_tree_len];
         input.read(&mut merkle_tree)?;
         Ok(FileMerkleTree { file_bytes, merkle_tree, pieces })
     }
@@ -117,20 +118,14 @@ impl FileMerkleTree {
     }
 
     pub fn file_chunk_at(&self, position: usize) -> &[u8] {
-        let count = self.piece_count();
         let pos = position * CHUNK_SIZE;
-        let limit = if position == count - 1 {
+        let limit = if position == (self.pieces - 1) as usize {
             self.file_bytes.len()
         } else { pos + CHUNK_SIZE };
         &self.file_bytes[pos..limit]
     }
 
-    pub fn piece_count(&self) -> usize {
-        let len = self.file_bytes.len();
-        if len % CHUNK_SIZE == 0 { len / CHUNK_SIZE } else { (len / CHUNK_SIZE) + 1 }
-    }
-
     pub fn merkle_root(&self) -> &[u8] {
-        &self.merkle_tree[(self.merkle_tree.len() - CHUNK_SIZE)..self.merkle_tree.len()]
+        &self.merkle_tree[(self.merkle_tree.len() - 32)..self.merkle_tree.len()]
     }
 }

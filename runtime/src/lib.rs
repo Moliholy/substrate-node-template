@@ -479,6 +479,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl pallet_template_runtime_api::TemplateApi<Block> for Runtime {
+		fn get_files() -> Vec<(Vec<u8>, u32)> {
+			TemplateModule::get_files()
+		}
+	}
+
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, Balance, RuntimeCall>
 		for Runtime
 	{
