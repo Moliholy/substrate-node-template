@@ -4,6 +4,12 @@
 
 A fresh FRAME-based [Substrate](https://www.substrate.io/) node, ready for hacking :rocket:
 
+
+## The Trustless File Server pallet
+
+For instructions regarding the custom pallet please check [here](./pallets/template/README.md).
+
+
 ## Getting Started
 
 Follow the steps below to get started with the Node Template, or get it up and running right from

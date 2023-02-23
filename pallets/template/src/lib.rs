@@ -1,3 +1,23 @@
+//! # Trustless File Server Pallet
+//!
+//! The Trustless File Server pallet provides functionality to store and serve files
+//! along with the cryptographic proofs using [merkle trees](https://brilliant.org/wiki/merkle-tree/).
+//!
+//! The idea is to store file contents on the blockchain and serve them in chunks, along
+//! with the corresponding cryptographic proof. With that proof, the client is able to compute back
+//! the merkle root of the file, hence proving the files obtained in the chunk are correct.
+//!
+//! This methodology is pretty similar to how the Bittorrent protocol works. More information
+//! about this protocol can be found [here](https://www.bittorrent.org/beps/bep_0030.html).
+//!
+//! This implementation has the following characteristics:
+//! - It uses a fixed file chunk of 1KB
+//! - The hashing algorithm is `sha256` instead of Bittorrent's original one: `sha1`.
+//! - Files are stored on the blockchain. Bear in mind that this is an overall bad practice and
+//! should be used with caution. A notable improvement to this pallet would actually be to
+//! use IPFS or any other decentralized storage protocol to store files, and only keep on the
+//! blockchain storage the associated hash.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate core;
@@ -44,7 +64,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Uploads a file to the blockchain.
+        /// Uploads a file to the blockchain and computes its merkle tree.
         /// Bear in mind that as a general rule of thumb blockchains should not store big amounts of
         /// data, and instead decentralized services like IPFS should be used, storing only the
         /// associated hash on the blockchain.
@@ -76,7 +96,7 @@ pub mod pallet {
 
     // RPC methods
     impl<T: Config> Pallet<T> {
-        /// Gets all file hashes ever submitted
+        /// Gets from the storage all file hashes ever submitted.
         pub fn get_files() -> Vec<(Vec<u8>, u32)> {
             let result = Files::<T>::iter()
                 .map(|(_, (_, tree))| (tree.merkle_root().to_vec(), tree.pieces))
@@ -84,12 +104,13 @@ pub mod pallet {
             result
         }
 
-        /// Given a file's merkle root hash, gets the merkle proof of a given piece.
+        /// Given a file's merkle root hash, gets the merkle proof of a given 1KB-chunk, identified
+        /// by its position.
         /// Returns a tuple where the first element is the chunk content, and the second is
         /// the merkle proof.
         ///
-        /// The idea is that the client can use the content to compute the sha256 hash, and with it
-        /// hash along with the rest of the proofs until the merkle root is finally computed.
+        /// The idea is that the client can (and should) use the content to compute the sha256 hash,
+        /// and with it hash along with the rest of the proofs until the merkle root is finally computed.
         /// This way it gets proven that the content is authentic in a trustless manner.
         pub fn get_proof(merkle_root: Vec<u8>, position: u32) -> Option<(Vec<u8>, Vec<Vec<u8>>)> {
             let key = T::Hash::decode(&mut merkle_root.as_slice()).map_err(|_| None::<T>).ok()?;
