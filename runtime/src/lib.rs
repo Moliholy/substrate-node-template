@@ -6,6 +6,8 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+extern crate alloc;
+use alloc::string::String;
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -149,6 +151,10 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 }
 
+parameter_types! {
+	pub const IpfsNodeUrl: &'static str = "http://127.0.0.1:5001";
+}
+
 // Configure FRAME pallets to include in runtime.
 
 impl frame_system::Config for Runtime {
@@ -273,6 +279,11 @@ impl pallet_template::Config for Runtime {
 	type WeightInfo = pallet_template::weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_trustless_file_server::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type IpfsNodeUrl = IpfsNodeUrl;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
@@ -290,6 +301,7 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
+		TrustlessFileServer: pallet_trustless_file_server,
 	}
 );
 
@@ -336,7 +348,8 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
-		[pallet_template, TemplateModule]
+		[pallet_template, TemplateModule],
+		[pallet_trustless_file_server, TrustlessFileServer],
 	);
 }
 
@@ -461,6 +474,16 @@ impl_runtime_apis! {
 	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
 		fn account_nonce(account: AccountId) -> Index {
 			System::account_nonce(account)
+		}
+	}
+
+	impl pallet_trustless_file_server_runtime_api::TrustlessFileServerApi<Block> for Runtime {
+		fn get_files() -> Vec<(Vec<u8>, u32)> {
+			TrustlessFileServer::get_files()
+		}
+
+		fn get_proof(merkle_root: Vec<u8>, position: u32) -> Option<(String, Vec<Vec<u8>>)> {
+			TrustlessFileServer::get_proof(merkle_root, position)
 		}
 	}
 
